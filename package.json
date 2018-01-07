@@ -1,0 +1,14 @@
+{
+  "name": "ersulba-bot",
+  "version": "0.0.1",
+  "description": "This is a test bot for discord made by ersulba",
+  "main": "index.js",
+  "author": "ersulba",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^11.2.1"
+  }
+}
