@@ -6,9 +6,13 @@
   "author": "ersulba",
   "license": "MIT",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "webpack"
   },
   "dependencies": {
     "discord.js": "^11.2.1"
+  },
+  "devDependencies": {
+    
   }
 }
