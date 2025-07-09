@@ -1,47 +1,92 @@
-import Discord from 'discord.js'
-import config from './config.json'
-import fs from 'fs'
+const fs = require('fs');
+const path = require('path');
+const express = require('express');
+const {
+  Client,
+  GatewayIntentBits,
+  PermissionsBitField
+} = require('discord.js');
 
+const configPath = path.join(__dirname, 'config.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-// const Discord = require('discord.js');
-const client = new Discord.Client();
-const owner = process.env.OWNER_ID;
+function saveConfig() {
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
 
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
 
-client.on('ready', () => {
-    console.log('I am ready!');
+const PORT = process.env.PORT || 3000;
+
+app.get('/api/config', (req, res) => {
+  res.json({
+    prefix: config.prefix,
+    role: config.permissions.setprefix
+  });
 });
 
-client.on('message', message => {
-    const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
-    const command = args.shift().toLowerCase();
-
-    if (!command || message.author.bot) return;
-
-    if (command === 'ping') {
-    	message.reply('pong');
-    }
-
-    if (command === "asl") {
-        let [age, sex, location] = args;
-        message.reply(`Hello ${message.author.username}, i see you are ${age} year old ${sex} from ${location}`);
-      }
-    //Here im trying to joke
-    if (message.content === 'tu eres marisco') {
-      message.reply('mas marisco sereis vos')
-    }
-
-    /* here we change the configuration of the bot */
-    if(message.content.startsWith(config.prefix + "prefix")) {
-        // Gets the prefix from the command (eg. "!prefix +" it will take the "+" from it)
-        let newPrefix = message.content.split(" ").slice(1, 2)[0];
-        // change the configuration in memory
-        config.prefix = newPrefix;
-
-        // Now we have to save the file.
-        fs.writeFile("./config.json", JSON.stringify(config), (err) => console.error);
-      }
+app.post('/api/prefix', (req, res) => {
+  const { prefix } = req.body;
+  if (!prefix) return res.status(400).send('Missing prefix');
+  config.prefix = prefix;
+  saveConfig();
+  res.send('Prefix updated');
 });
 
-// THIS  MUST  BE  THIS  WAY
+app.post('/api/permissions', (req, res) => {
+  const { role } = req.body;
+  if (!role) return res.status(400).send('Missing role');
+  config.permissions.setprefix = role;
+  saveConfig();
+  res.send('Permissions updated');
+});
+
+app.listen(PORT, () => {
+  console.log(`Dashboard available on port ${PORT}`);
+});
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+client.on('messageCreate', message => {
+  if (!message.content.startsWith(config.prefix) || message.author.bot) return;
+
+  const args = message.content.slice(config.prefix.length).trim().split(/\s+/);
+  const command = args.shift().toLowerCase();
+
+  switch (command) {
+    case 'ping':
+      message.reply('pong');
+      break;
+    case 'serverinfo':
+      message.channel.send(`Server: ${message.guild.name}\nChannel: ${message.channel.name}`);
+      break;
+    case 'setprefix':
+      if (
+        !message.member.permissions.has(PermissionsBitField.Flags.Administrator) &&
+        !message.member.roles.cache.some(r => r.name === config.permissions.setprefix)
+      ) {
+        return message.reply('You lack permission to change the prefix.');
+      }
+      if (!args[0]) return message.reply('Please provide a new prefix.');
+      config.prefix = args[0];
+      saveConfig();
+      message.reply(`Prefix updated to ${config.prefix}`);
+      break;
+    default:
+      break;
+  }
+});
 client.login(process.env.BOT_TOKEN);
+
